@@ -1,8 +1,30 @@
 
-const defaultStyles = {
-    EM: 'font-style: italic',
-    STRONG: 'font-weight: bolder',
-    CODE: 'font-family: monospace; color: green',
+const
+    bold = 'font-weight:bolder',
+    ital = 'font-style:italic',
+    struck = 'text-decoration:line-through',
+    mono = 'font-family:monospace'
+
+const defaultStylesheet = {
+    EM:     ital,
+    I:      ital,
+    CITE:   ital,
+    DFN:    ital,
+    STRONG: bold,
+    B:      bold,
+    CODE:   mono + ';color:#080;background:#efefef;outline:1px solid #aaa',
+    SAMP:   mono + ';background:black;color:white',
+    KBD:    'border:1px solid black;background:#ddd;color:#000;' + 
+            'border-radius:2px;font-size:.9em;padding:0 2px;' +
+            'box-shadow:0 -2px 0 0 #aaa inset;',
+    MARK:   'background:yellow;color:black',
+    INS:    'text-decoration:underline',
+    DEL:    struck,
+    U:      'text-decoration:underline',
+    S:      struck,
+    HR:     'display:block;border-bottom:1px solid currentcolor',
+    SUB:    'font-size:0.85em;vertical-align:sub;',
+    SUP:    'font-size:0.85em;vertical-align:super;',
 }
 
 /**
@@ -15,10 +37,16 @@ const defaultStyles = {
  * @param {string[]} interp Interpolated expression values. Will be escaped.
  */
 export default function printh(parts, ...interp) {
-    const msg = String.raw(parts, interp.map(escape))
+    let stylesheet = defaultStylesheet
+    if (parts[0] === '%s') {
+        stylesheet = interp[0]
+        interp[0] = ''
+    }
+
+    const msg = String.raw(parts, interp.map(escape)).substring(parts[0] === '%s' ? 2 : 0)
     const $msg = parseHTML(msg)
 
-    const spans = elementToSpans($msg)
+    const spans = elementToSpans($msg, stylesheet)
     const args = spansToConsoleArgs(spans)
     return args
 }
@@ -27,9 +55,9 @@ export default function printh(parts, ...interp) {
  * 
  * @param {Node} $node 
  */
-function elementToSpans($node, baseStyles = 'visibility:visible') {
+function elementToSpans($node, stylesheet) {
     const rv = []
-    const styleStack = [baseStyles];
+    const styleStack = '*' in stylesheet ? [stylesheet['*']] : [];
 
     walker($node)
     return rv
@@ -42,17 +70,18 @@ function elementToSpans($node, baseStyles = 'visibility:visible') {
             })
         }
 
+        let styles = '';
         if ($node instanceof HTMLElement) {
-            let styles = '';
-            if ($node.tagName in defaultStyles) {
-                styles += defaultStyles[$node.tagName]
+            if ($node.tagName in stylesheet) {
+                styles += stylesheet[$node.tagName]
             }
             if ($node.hasAttribute('style')) {
                 styles += $node.getAttribute('style')
             }
-            styleStack.push(styles)
         }
+        styleStack.push(styles)
         for (const $child of $node.childNodes) walker($child)
+        styleStack.pop()
     }
 }
 
@@ -68,7 +97,7 @@ function spansToConsoleArgs(spans) {
 }
 
 function escape(string) {
-    return string
+    return string.toString()
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
